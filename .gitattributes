@@ -1,0 +1,13 @@
+# 统一换行符：仓库内一律 LF，检出时按平台自动转换
+* text=auto eol=lf
+
+# Windows 批处理必须是 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制文件不做换行转换
+*.png binary
+*.ico binary
+*.mp3 binary
+*.pdf binary
+*.docx binary

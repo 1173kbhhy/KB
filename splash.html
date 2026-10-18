@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>启动中…</title>
+<script>
+// ── 安全：fetch 自动带会话令牌（语音素材用 fetch 拉，需带头）──
+(function () {
+  var _f = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    var o = init || {};
+    o.headers = Object.assign({}, o.headers || {});
+    if (!o.headers["X-NOVA-Token"]) o.headers["X-NOVA-Token"] = window.NOVA_TOKEN || "";
+    return _f(input, o);
+  };
+})();
+</script>
+<style>
+  /* 在动画脚本接管前先压黑，避免白屏闪烁 */
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+</style>
+<link rel="stylesheet" href="/assets/splash.css">
+</head>
+<body>
+<!-- 启动动画挂载点：必须与 dsh-startup-screen 运行时约定一致 -->
+<div id="dsh-startup-root" class="dsu-root dsu-boot"></div>
+
+<script>
+  /* 在加载 splash.js 之前注入配置（splash.js 在解析时即读取 window.__DSH_STARTUP__） */
+  window.__DSH_STARTUP__ = {
+    enabled: true,
+    mode: 'always',            // 每次打开软件都播放
+    theme: 'light',            // 暖白档案底板（参考片原色）
+    speed: 1.5,                // 轻微加速，整套约 11 秒
+    requireInteraction: true,   // 取消自动播放：第 1、2 步需点击 / 回车才继续
+    allowSkip: true,           // 右上角 SKIP / Esc 可跳过
+    sound: true,               // 开启界面音效（WebAudio 合成音，无音频文件、离线可用）
+    voice: true,               // 开启女声播报
+    voiceSource: 'asset',      // 用拉下来的真声素材（assets/dsh_voice/*.mp3），不再走系统 TTS
+    voiceLang: 'both',         // en | zh | both（中英文都念，保留影院感；改 'zh' 只念中文）
+    voiceName: '',             // ''=自动挑女声；可指定如 'Microsoft Huihui - Chinese (Simplified)'
+    voiceRate: 0.88,           // 电影旁白档语速
+    voicePitch: 0.85,          // 压低音调，深沉 AI 女声
+    voiceCue: true,            // 念台词前一声轻提示
+    sfx: 'synth',              // 界面音效走合成音，零网络请求
+    /* ── 文案：保留 DeepSeek 启动动画的视觉语汇，落款改为本地模型 ── */
+    identity: '本地 Qwen3-8B',
+    identityId: 'LOCAL',
+    accessLevel: '本地',
+    brand1: 'DEEPSEEK',
+    brand2: 'SYNTHESIZE INTELLIGENCE',
+    brand3a: 'HARNESS',
+    brand3b: 'OS',
+    orgZh: '深度求索',
+    orgEn: 'DEEPSEEK',
+    orgSub: 'DEEPSEEK HARNESS',
+    welcomeBox: '本地智能体',
+    footer: '本地部署 · 数据不出本机'
+  };
+
+  /* 动画播完（dsh-startup:done）→ 进入聊天界面。
+     因已开启「需手动点击/回车开始」，不设置短定时器自动跳转（否则会抵消手动启动）。
+     仅保留一道很长的兜底：万一引擎渲染失败、连点击闸门都没出现，90 秒后仍进 /chat，避免黑屏卡死。 */
+  var _redirected = false;
+  function goChat() {
+    if (_redirected) return;
+    _redirected = true;
+    window.location.href = '/chat';
+  }
+  window.addEventListener('dsh-startup:done', goChat);
+  setTimeout(goChat, 90000); // 兜底：仅引擎彻底卡死时触发
+</script>
+<script src="/assets/splash.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+# 网络技术方向 · 本地知识库评测集（eval_set.jsonl）
+#
+# 这份评测集用于「改动前后对比」，不是考模型智商，而是考**检索链路**：
+#   检索命中率 / 忠实度（回答是否只依据检索到的资料）/ 格式合规率
+#
+# 设计原则：
+#   1. 每题都基于 kb_data/ 里**真实存在的文档**，答案要点从文档里抄，不臆造。
+#   2. must_include 是「答案里必须出现的关键词」——用于自动判分，无需人工。
+#   3. kb_only=true 的题，期望模型**只依据知识库**回答；检索不到时应明确说不知道（需求7的降级）。
+#   4. 负样本（expect_abstain=true）专门用来测「该说不知道时会不会瞎编」。
+#
+# 维护：往 kb_data/ 加了新资料后，往这里补对应题目即可。
+# 每行一个 JSON 对象。
+
+{"id":"kb01","cat":"上午-IP地址","query":"A类、B类、C类地址的默认子网掩码分别是什么？","src":"示例-IP地址分类与私网地址","must_include":["/8","/16","/24"],"expect_abstain":false}
+{"id":"kb02","cat":"上午-IP地址","query":"C类地址的默认掩码是什么？首字节范围是多少？","src":"示例-IP地址分类与私网地址","must_include":["192","223","/24"],"expect_abstain":false}
+{"id":"kb03","cat":"上午-IP地址","query":"D类地址的范围是多少？它是做什么用的？","src":"示例-IP地址分类与私网地址","must_include":["224","239","组播"],"expect_abstain":false}
+{"id":"kb04","cat":"上午-IP地址","query":"E类地址的范围是多少？","src":"示例-IP地址分类与私网地址","must_include":["240","255"],"expect_abstain":false}
+{"id":"kb05","cat":"上午-IP地址","query":"RFC 1918 规定的三个私有地址段分别是什么？","src":"示例-IP地址分类与私网地址","must_include":["10.0.0.0","172.16","192.168"],"expect_abstain":false}
+{"id":"kb06","cat":"上午-IP地址","query":"B类私有地址的完整范围是什么？掩码是多少？","src":"示例-IP地址分类与私网地址","must_include":["172.16.0.0","172.31.255.255","/12"],"expect_abstain":false}
+{"id":"kb07","cat":"上午-IP地址","query":"127.0.0.0/8 是什么地址？属于私网吗？","src":"示例-IP地址分类与私网地址","must_include":["回环","本机"],"expect_abstain":false}
+{"id":"kb08","cat":"上午-IP地址","query":"169.254.0.0/16 是什么？什么时候会用到？","src":"示例-IP地址分类与私网地址","must_include":["APIPA","DHCP"],"expect_abstain":false}
+{"id":"kb09","cat":"上午-易混点","query":"私有地址和保留地址有什么区别？D类和E类算私网吗？","src":"示例-IP地址分类与私网地址","must_include":["保留","不在私网"],"expect_abstain":false}
+{"id":"kb10","cat":"上午-易混点","query":"172.16.0.0/12 覆盖范围到哪？是不是整个172.0.0.0/8？","src":"示例-IP地址分类与私网地址","must_include":["172.31","不是"],"expect_abstain":false}
+{"id":"kb11","cat":"上午-分类","query":"IPv4地址分哪几类？","src":"示例-IP地址分类与私网地址","must_include":["A","B","C","D","E"],"expect_abstain":false}
+{"id":"kb12","cat":"上午-分类","query":"哪一类地址单网段主机数最多？","src":"示例-IP地址分类与私网地址","must_include":["A"],"expect_abstain":false}
+
+{"id":"kb13","cat":"下午-子网划分","query":"子网划分的本质是什么？","src":"示例-子网划分计算","must_include":["借主机位","网络位"],"expect_abstain":false}
+{"id":"kb14","cat":"下午-子网划分","query":"把192.168.1.0/24划分成4个子网，新掩码是什么？","src":"示例-子网划分计算","must_include":["/26","255.255.255.192"],"expect_abstain":false}
+{"id":"kb15","cat":"下午-子网划分","query":"192.168.1.0/24划分成4个子网后，每个子网有多少台可用主机？","src":"示例-子网划分计算","must_include":["62"],"expect_abstain":false}
+{"id":"kb16","cat":"下午-子网划分","query":"192.168.1.0/24等分4个子网时，块大小（步长）是多少？怎么算？","src":"示例-子网划分计算","must_include":["64","256"],"expect_abstain":false}
+{"id":"kb17","cat":"下午-子网划分","query":"列出192.168.1.0/24划分4个子网后的全部子网范围。","src":"示例-子网划分计算","must_include":["192.168.1.0","192.168.1.64","192.168.1.128","192.168.1.192"],"expect_abstain":false}
+{"id":"kb18","cat":"下午-公式","query":"子网数和每子网主机数的计算公式分别是什么？","src":"示例-子网划分计算","must_include":["2^n","2^"],"expect_abstain":false}
+{"id":"kb19","cat":"下午-易混点","query":"为什么每子网可用主机数要减2？","src":"示例-子网划分计算","must_include":["网络地址","广播地址"],"expect_abstain":false}
+{"id":"kb20","cat":"下午-易混点","query":"/31 这个特殊掩码是怎么回事？","src":"示例-子网划分计算","must_include":["点对点","2个"],"expect_abstain":false}
+{"id":"kb21","cat":"下午-计算","query":"已知每个子网至少要100台主机，应该怎么算需要几位主机位？","src":"示例-子网划分计算","must_include":["2^h","100"],"expect_abstain":false}
+{"id":"kb22","cat":"下午-计算","query":"借了n位主机位后，新掩码位数怎么算？","src":"示例-子网划分计算","must_include":["默认掩码","借位"],"expect_abstain":false}
+{"id":"kb23","cat":"下午-概念","query":"VLSM 是什么？","src":"示例-子网划分计算","must_include":["变长"],"expect_abstain":false}
+{"id":"kb24","cat":"下午-概念","query":"块大小（子网步长）怎么根据掩码算出来？","src":"示例-子网划分计算","must_include":["256","掩码"],"expect_abstain":false}
+
+{"id":"kb25","cat":"跨文档","query":"私有地址段有哪些？它们各自的默认掩码是什么？","src":["示例-IP地址分类与私网地址"],"must_include":["10","172.16","192.168","/8","/12","/16"],"expect_abstain":false}
+{"id":"kb26","cat":"跨文档","query":"A类私网地址段是多少？它属于哪一类地址？","src":["示例-IP地址分类与私网地址"],"must_include":["10.0.0.0","255.255.255.255","A"],"expect_abstain":false}
+{"id":"kb27","cat":"跨文档","query":"子网划分时借位越多，每个子网的主机数会怎么变？","src":["示例-子网划分计算"],"must_include":["少","减"],"expect_abstain":false}
+{"id":"kb28","cat":"应用","query":"我要给一个部门分一个能容纳200台主机的网段，用C类地址怎么算掩码？","src":["示例-子网划分计算","示例-IP地址分类与私网地址"],"must_include":["/24","25"],"expect_abstain":false}
+{"id":"kb29","cat":"应用","query":"判断 192.168.10.1 是不是私有地址，并说明理由。","src":["示例-IP地址分类与私网地址"],"must_include":["192.168","私有"],"expect_abstain":false}
+{"id":"kb30","cat":"应用","query":"判断 172.32.0.1 是不是私有地址。","src":["示例-IP地址分类与私网地址"],"must_include":["不是","公网"],"expect_abstain":false}
+
+{"id":"neg01","cat":"负样本","query":"BGP 路由反射器的 Cluster ID 是多少位？","src":[],"must_include":[],"expect_abstain":true}
+{"id":"neg02","cat":"负样本","query":"2026 年计算机技术与软件专业技术资格考试的合格分数线是多少？","src":[],"must_include":[],"expect_abstain":true}
+{"id":"neg03","cat":"负样本","query":"IS-IS 协议里 LSP 的 PDU 类型一共有几种？","src":[],"must_include":[],"expect_abstain":true}
+{"id":"neg04","cat":"负样本","query":"IEEE 802.11ax 的理论最大速率是多少？","src":[],"must_include":[],"expect_abstain":true}
+{"id":"neg05","cat":"负样本","query":"PPP 协议的 LCP 协商阶段有哪些报文？","src":[],"must_include":[],"expect_abstain":true}
+{"id":"neg06","cat":"负样本","query":"MPLS 的标签栈深度最大值是多少？","src":[],"must_include":[],"expect_abstain":true}
+{"id":"neg07","cat":"负样本","query":"OSPFv3 和 OSPFv2 的报文格式有什么区别？","src":[],"must_include":[],"expect_abstain":true}
+{"id":"neg08","cat":"负样本","query":"QUIC 协议的默认端口号是多少？","src":[],"must_include":[],"expect_abstain":true}

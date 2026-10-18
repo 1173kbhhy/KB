@@ -1,0 +1,105 @@
+# ─────────────────────────────────────────────────────────────
+# NOVA AI — 忽略规则
+# 原则：代码开源，个人数据与第三方资源一律不入库
+# ─────────────────────────────────────────────────────────────
+
+# ── 依赖与环境（372MB，绝不能提交）─────────────────────────────
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ── 个人数据与凭据（最重要）────────────────────────────────────
+# .env 里有真实的 API Key，只提交 .env.example
+.env
+.env.local
+*.key
+*.pem
+*.secret
+
+# memory.md 是你的个人记忆文档，包含私人背景信息
+memory.md
+memory.compact.md
+# 但保留记忆文档模板（如果以后有）
+
+# ── 知识库与向量库（属于你的资料，不公开）──────────────────────
+# 只保留目录结构与模板，忽略真实内容
+kb_data/**
+!kb_data/.gitkeep
+!kb_data/README.md
+!kb_data/**/_模板.md
+!kb_data/**/_待填充.md
+
+qdrant_data/
+*.qdrant
+
+# ── 评测产物（含本机路径与运行记录）──────────────────────────
+eval/history.jsonl
+eval/report.csv
+eval/report.md
+eval/__pycache__/
+
+# ── 第三方项目副本（仅为本地参考，不随本仓库分发）──────────────
+# 早期下载的第三方参考实现，本项目已独立重写为 rag_mcp_server.py
+mcp-rag-server/
+mcp-rag-server.zip
+
+# ── 个人文档与生成产物（不属于代码）──────────────────────────
+# 这些是本地生成的方案文档/总结报告，不进代码仓库
+改进方案.md
+改进方案.txt
+项目全程总结.docx
+NOVA AI 改进方案.docx
+docs/personal/
+*.docx
+!docs/**/*.docx
+
+# ── 流水线中间产物 ─────────────────────────────────────────────
+output/
+stage1/
+stage2/
+stage3/
+*.docx.tmp
+
+# ── 第三方资源（有独立许可证，见 THIRD_PARTY.md）──────────────
+# 开机动画来自 dsh-startup-screen，不随本仓库分发
+# 请运行 scripts/fetch_splash_assets.py 获取
+assets/splash.js
+assets/splash.css
+assets/dsh_voice/
+
+# AI 生成的图标同样不入库（体积 1MB+ 且无分发必要）
+assets/*.png
+assets/*.ico
+
+# ── 本机专属文件 ───────────────────────────────────────────────
+# 启动脚本含本机绝对路径，跨平台无意义
+启动聊天软件.bat
+*.lnk
+*.bat
+*.cmd
+!scripts/*.bat
+
+# 历史记录目录在 D 盘，若被复制进来也不要
+chat_history.json
+*.log
+
+# ── 编辑器与系统文件 ───────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.tmp
+*.bak

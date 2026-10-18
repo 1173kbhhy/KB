@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ollama 本地聊天客户端</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel2: #1e222e; --border: #2a2f3d;
+    --text: #e6e8ee; --muted: #8b93a7; --accent: #4f8cff; --accent2: #7c5cff;
+    --user: #2b3a55; --ai: #1e222e; --green: #3ecf8e; --red: #ff6b6b; --yellow: #ffc857;
+  }
+  body { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 12px 18px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .topbar h1 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .logo { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .topbar .spacer { flex: 1; }
+  select, .btn { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; outline: none; }
+  select:hover, .btn:hover { border-color: var(--accent); }
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .toggle { position: relative; width: 42px; height: 22px; background: var(--panel2); border: 1px solid var(--border); border-radius: 22px; cursor: pointer; transition: .2s; }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .2s; }
+  .toggle.on::after { left: 22px; }
+  .status { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+  .dot.ok { background: var(--green); }
+
+  .main { flex: 1; display: flex; min-height: 0; }
+  .sidebar { width: 280px; background: var(--panel); border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+  .section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 10px; }
+  .model-item { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .model-item.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .model-item .sz { color: var(--muted); font-size: 11px; }
+  .ps-item { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 13px; margin-bottom: 7px; }
+  .ps-item .bar { height: 6px; background: var(--bg); border-radius: 4px; margin-top: 6px; overflow: hidden; }
+  .ps-item .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .release-btns { display: flex; flex-direction: column; gap: 8px; }
+  .release-btns .btn { text-align: left; }
+  .release-btns .btn small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .history-item { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 13px; margin-bottom: 7px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .history-item:hover { border-color: var(--accent); }
+  .history-item .del { color: var(--red); font-size: 11px; }
+  .empty { color: var(--muted); font-size: 12px; font-style: italic; }
+
+  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .messages { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 80%; padding: 12px 15px; border-radius: 14px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .msg.user { background: var(--user); align-self: flex-end; border-bottom-right-radius: 4px; }
+  .msg.ai { background: var(--ai); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 4px; }
+  .msg .think { background: rgba(124,92,255,.08); border-left: 3px solid var(--accent2); padding: 8px 12px; margin-bottom: 10px; border-radius: 6px; color: var(--muted); font-size: 13px; }
+  .thinking-toggle { cursor: pointer; color: var(--accent2); font-size: 12px; margin-bottom: 6px; user-select: none; }
+  .inputbar { padding: 14px 18px; border-top: 1px solid var(--border); background: var(--panel); display: flex; gap: 10px; align-items: flex-end; }
+  textarea { flex: 1; resize: none; background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 11px 14px; font-size: 14px; font-family: inherit; max-height: 140px; outline: none; }
+  textarea:focus { border-color: var(--accent); }
+  .send { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; color: #fff; border-radius: 10px; padding: 11px 20px; font-size: 14px; cursor: pointer; font-weight: 600; }
+  .send:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  /* ── 性能设置面板 ─────────────────────────────────────────────── */
+  .perf-field { margin-bottom: 12px; }
+  .perf-field .lbl { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 5px; }
+  .perf-field .lbl b { color: var(--text); font-weight: 600; }
+  .perf-field .val { color: var(--accent); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .perf-field .tip { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .perf-field select { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; outline: none; }
+  .perf-field select:hover { border-color: var(--accent); }
+  .perf-reset { font-size: 11px; color: var(--muted); cursor: pointer; text-decoration: underline; }
+  .perf-reset:hover { color: var(--accent); }
+
+  /* ── 思考过程 / 流式输出动画 ───────────────────────────── */
+  /* 消息整体淡入上滑，让输出更顺滑 */
+  .msg.ai { animation: msgIn .35s ease both; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  /* 思考块：左侧光条呼吸 + 底色微脉动，强调"正在推理" */
+  .msg .think { animation: thinkPulse 2.4s ease-in-out infinite; }
+  @keyframes thinkPulse {
+    0%, 100% { border-left-color: var(--accent2); background: rgba(124,92,255,.06); }
+    50%      { border-left-color: var(--accent);  background: rgba(124,92,255,.13); }
+  }
+  /* 流式输出光标：思考/正文末尾的闪烁竖条 */
+  .stream-cursor { display: inline-block; margin-left: 1px; color: var(--accent2); font-weight: 700; animation: blink 1s steps(1, end) infinite; }
+  @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+  /* 思考占位：三个跳动的点 */
+  .thinking-dots { color: var(--accent2); font-size: 12px; letter-spacing: 2px; }
+  .thinking-dots b { animation: dot 1.2s infinite; opacity: .2; }
+  .thinking-dots b:nth-child(2) { animation-delay: .2s; }
+  .thinking-dots b:nth-child(3) { animation-delay: .4s; }
+  @keyframes dot { 0%, 60%, 100% { opacity: .2; } 30% { opacity: 1; } }
+
+  /* ── 记忆编辑弹窗 ─────────────────────────────────────────── */
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-mask.show { display: flex; }
+  .modal { width: 660px; max-width: 92vw; max-height: 86vh; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); animation: msgIn .25s ease both; }
+  .modal h2 { font-size: 16px; font-weight: 600; }
+  .modal textarea { width: 100%; height: 52vh; resize: vertical; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 12px; font-size: 13px; line-height: 1.65; font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; outline: none; }
+  .modal textarea:focus { border-color: var(--accent); }
+  .modal .row { display: flex; justify-content: flex-end; gap: 10px; align-items: center; }
+  .modal .row .hint { margin-right: auto; font-size: 12px; color: var(--green); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1><span class="logo"></span> Ollama 本地聊天</h1>
+    <select id="modelSelect"><option>加载中…</option></select>
+    <div class="switch">
+      <span>思考过程</span>
+      <div class="toggle on" id="thinkToggle"></div>
+    </div>
+    <div class="switch">
+      <span>知识库</span>
+      <div class="toggle" id="kbToggle"></div>
+    </div>
+    <div class="switch">
+      <span>联网</span>
+      <div class="toggle" id="webToggle"></div>
+    </div>
+    <div class="switch">
+      <span>记忆</span>
+      <div class="toggle on" id="memToggle"></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">未连接</span></div>
+    <div class="status" style="margin-left:10px;"><span class="dot" id="kbDot"></span><span id="kbStatus">知识库…</span></div>
+    <div class="status" style="margin-left:8px;"><span class="dot" id="memDot"></span><span id="memStatus">记忆…</span></div>
+  </div>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="section">
+        <h3>已下载模型</h3>
+        <div id="modelList"></div>
+      </div>
+      <div class="section">
+        <h3>显存占用</h3>
+        <div id="psList"><div class="empty">暂无运行中的模型</div></div>
+      </div>
+      <div class="section">
+        <h3>性能设置 <span class="perf-reset" id="perfReset">恢复默认</span></h3>
+        <div class="perf-field">
+          <div class="lbl"><b>上下文长度</b><span class="val" id="ctxVal">8192</span></div>
+          <input type="range" id="ctxRange" min="2048" max="32768" step="1024" value="8192">
+          <div class="tip">单次对话能记住的 token 数。越大越连贯，但更吃显存。6GB 显存建议 4096–8192。</div>
+        </div>
+        <div class="perf-field">
+          <div class="lbl"><b>GPU 层数</b><span class="val" id="gpuVal">36</span></div>
+          <input type="range" id="gpuRange" min="0" max="48" step="1" value="36">
+          <div class="tip">卸载到显卡的模型层数。36 ≈ qwen3:8b 全量卸载；调小可腾出显存给上下文（0 = 纯 CPU，很慢）。</div>
+        </div>
+        <div class="perf-field">
+          <div class="lbl"><b>KV Cache 量化</b></div>
+          <select id="kvSelect">
+            <option value="q8_0" selected>q8_0（推荐，省显存保精度）</option>
+            <option value="q4_0">q4_0（更省显存）</option>
+            <option value="q2_K">q2_K（最省，略损精度）</option>
+            <option value="">关闭（fp16，最占显存）</option>
+          </select>
+          <div class="tip">压缩注意力缓存。开量化可在同样显存下撑更长的上下文。</div>
+        </div>
+      </div>
+      <div class="section">
+        <h3>释放模式</h3>
+        <div class="release-btns">
+          <button class="btn" id="autoBtn">自动释放<small>聊完即卸（已默认开启）</small></button>
+          <button class="btn" id="manualBtn">手动释放<small>立即卸载当前模型显存</small></button>
+          <button class="btn" id="quitBtn">彻底退出<small>关闭 Ollama 后台服务</small></button>
+        </div>
+      </div>
+      <div class="section">
+        <h3>更新数据库（本地知识库）</h3>
+        <div class="release-btns">
+          <button class="btn" id="ingestBtn">＋ 加入文档<small>选择 .md/.txt/.pdf 加入知识库</small></button>
+        </div>
+        <div id="ingestMsg" class="hint"></div>
+      </div>
+      <div class="section">
+        <h3>长期记忆文档</h3>
+        <div class="release-btns">
+          <button class="btn" id="memEditBtn">✏️ 编辑记忆<small>直接添加 / 修改模型记忆</small></button>
+          <button class="btn" id="memCompactBtn">📉 压缩记忆<small>太长时用本地模型提炼摘要</small></button>
+        </div>
+        <div id="memHint" class="hint"></div>
+      </div>
+      <div class="section">
+        <h3>历史记录（D 盘）</h3>
+        <div id="historyList"><div class="empty">暂无历史</div></div>
+      </div>
+    </div>
+
+    <div class="chat">
+      <div class="messages" id="messages">
+        <div class="msg ai">你好，我是本地运行的 Qwen3-8B。开始聊天吧 👋</div>
+      </div>
+      <div class="inputbar">
+        <textarea id="input" rows="1" placeholder="输入消息，Enter 发送 / Shift+Enter 换行"></textarea>
+        <button class="send" id="sendBtn">发送</button>
+      </div>
+      <div class="hint" style="padding:0 18px 10px;">聊天记录自动保存到 D:\ollama\chat_history.json</div>
+    </div>
+  </div>
+
+  <!-- 记忆编辑弹窗 -->
+  <div class="modal-mask" id="memMask">
+    <div class="modal">
+      <h2>✏️ 编辑我的长期记忆文档</h2>
+      <div class="hint" style="margin:0;">这里写的内容会在<b>每次打开软件时自动读取</b>并注入对话，让模型长期记住你的背景与偏好。建议只写稳定信息。</div>
+      <textarea id="memEditor" placeholder="例如：我是网络工程专业学生，正在准备认证考试；我喜欢简洁直接的回答……"></textarea>
+      <div class="row">
+        <span class="hint" id="memSaveMsg"></span>
+        <button class="btn" id="memCancel">取消</button>
+        <button class="btn send" id="memSave">保存记忆</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ── 安全：所有 fetch 自动带上本次启动的会话令牌 ────────────────────────
+// 后端会校验这个令牌，防止其它网页/程序读取你的记忆、历史，
+// 或调用「彻底退出 Ollama」这类破坏性接口。
+(function () {
+  const _nativeFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    const opts = init || {};
+    opts.headers = Object.assign({}, opts.headers || {});
+    if (!opts.headers["X-NOVA-Token"]) {
+      opts.headers["X-NOVA-Token"] = window.NOVA_TOKEN || "";
+    }
+    return _nativeFetch(input, opts);
+  };
+})();
+const $ = (id) => document.getElementById(id);
+let currentModel = "qwen3:8b";
+let thinking = true;
+let useKb = false;
+let useWeb = false;
+let useMemory = true;
+let messages = [];          // 当前会话 {role, content}
+let sessions = [];          // 历史会话列表
+let activeSessionId = null;
+let busy = false;
+
+// ---------- 性能设置（持久化到 localStorage，随每条消息下发） ----------
+const PERF_KEY = "ollama_perf_v1";
+let perf = { num_ctx: 8192, num_gpu_layers: 36, kv_cache_type: "q8_0" };
+function loadPerf() {
+  try {
+    const s = JSON.parse(localStorage.getItem(PERF_KEY) || "{}");
+    if (s.num_ctx) perf.num_ctx = s.num_ctx;
+    if (s.num_gpu_layers !== undefined) perf.num_gpu_layers = s.num_gpu_layers;
+    if (s.kv_cache_type !== undefined) perf.kv_cache_type = s.kv_cache_type;
+  } catch (e) {}
+}
+function savePerf() {
+  try { localStorage.setItem(PERF_KEY, JSON.stringify(perf)); } catch (e) {}
+}
+function applyPerfUI() {
+  $("ctxRange").value = perf.num_ctx;
+  $("gpuRange").value = perf.num_gpu_layers;
+  $("kvSelect").value = perf.kv_cache_type;
+  $("ctxVal").textContent = perf.num_ctx;
+  $("gpuVal").textContent = perf.num_gpu_layers;
+}
+
+// ---------- 连接状态 ----------
+async function checkConnection() {
+  try {
+    const r = await fetch("/api/models");
+    if (r.ok) {
+      $("statusDot").classList.add("ok");
+      $("statusText").textContent = "已连接";
+      loadModels();
+      return;
+    }
+  } catch (e) {}
+  $("statusDot").classList.remove("ok");
+  $("statusText").textContent = "未连接（Ollama 未启动？）";
+}
+
+// ---------- 加载模型列表 ----------
+async function loadModels() {
+  const r = await fetch("/api/models");
+  const data = await r.json();
+  const models = (data.models || []).map(m => ({ name: m.name, size: m.size }));
+  const sel = $("modelSelect");
+  sel.innerHTML = "";
+  $("modelList").innerHTML = "";
+  models.forEach(m => {
+    const o = document.createElement("option");
+    o.value = m.name; o.textContent = m.name;
+    sel.appendChild(o);
+    const div = document.createElement("div");
+    div.className = "model-item" + (m.name === currentModel ? " active" : "");
+    div.innerHTML = `<span>${m.name}</span><span class="sz">${(m.size/1e9).toFixed(1)}G</span>`;
+    div.onclick = () => selectModel(m.name);
+    $("modelList").appendChild(div);
+  });
+  if (models.find(m => m.name === currentModel)) sel.value = currentModel;
+}
+
+// ---------- 显存占用 ----------
+async function loadPS() {
+  const r = await fetch("/api/ps");
+  const data = await r.json();
+  const list = data.models || [];
+  const box = $("psList");
+  box.innerHTML = "";
+  if (!list.length) { box.innerHTML = '<div class="empty">暂无运行中的模型</div>'; return; }
+  list.forEach(m => {
+    const vram = (m.size_vram || 0) / 1e9;
+    const total = 6; // RTX 4050 6GB
+    const pct = Math.min(100, (vram / total) * 100);
+    const div = document.createElement("div");
+    div.className = "ps-item";
+    div.innerHTML = `<div>${m.name}</div><div style="color:var(--muted);font-size:12px;margin-top:3px;">显存 ${vram.toFixed(1)} GB / 6 GB</div><div class="bar"><i style="width:${pct}%"></i></div>`;
+    box.appendChild(div);
+  });
+}
+
+// ---------- 历史记录 ----------
+async function loadHistory() {
+  const r = await fetch("/api/history");
+  sessions = await r.json().catch(() => []);
+  const box = $("historyList");
+  box.innerHTML = "";
+  if (!sessions.length) { box.innerHTML = '<div class="empty">暂无历史</div>'; return; }
+  sessions.slice().reverse().forEach(s => {
+    const div = document.createElement("div");
+    div.className = "history-item";
+    div.innerHTML = `<span>${s.title || "未命名会话"}</span><span class="del">删除</span>`;
+    div.querySelector("span").onclick = () => loadSession(s.id);
+    div.querySelector(".del").onclick = (e) => { e.stopPropagation(); deleteSession(s.id); };
+    box.appendChild(div);
+  });
+}
+
+function saveHistory() {
+  if (!activeSessionId && messages.length) {
+    activeSessionId = "s_" + Date.now();
+    sessions.push({ id: activeSessionId, title: messages[0].content.slice(0, 20), messages: [] });
+  }
+  if (activeSessionId) {
+    const s = sessions.find(x => x.id === activeSessionId);
+    if (s) s.messages = messages.slice();
+  }
+  fetch("/api/history", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(sessions) });
+}
+
+function loadSession(id) {
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+  activeSessionId = id;
+  messages = s.messages.slice();
+  $("messages").innerHTML = "";
+  messages.forEach(m => renderMsg(m.role, m.content, ""));
+  loadHistory();
+}
+
+function deleteSession(id) {
+  sessions = sessions.filter(x => x.id !== id);
+  if (activeSessionId === id) { activeSessionId = null; newChat(); }
+  fetch("/api/history", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(sessions) });
+  loadHistory();
+}
+
+// ---------- 选择模型 ----------
+function selectModel(name) {
+  currentModel = name;
+  $("modelSelect").value = name;
+  document.querySelectorAll(".model-item").forEach(d => {
+    d.classList.toggle("active", d.querySelector("span").textContent === name);
+  });
+}
+
+// ---------- 渲染消息 ----------
+function renderMsg(role, content, thinkingText) {
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "user" ? "user" : "ai");
+  if (role === "ai" && thinkingText) {
+    const t = document.createElement("div");
+    t.className = "thinking-toggle";
+    const body = document.createElement("div");
+    body.className = "think";
+    body.style.display = "block";
+    body.innerHTML = '<span class="thinking-dots">正在思考<b>.</b><b>.</b><b>.</b></span>';
+    t.textContent = "▾ 思考过程";
+    t.onclick = () => { body.style.display = body.style.display === "none" ? "block" : "none"; t.textContent = (body.style.display==="none"?"▸":"▾") + " 思考过程"; };
+    div.appendChild(t); div.appendChild(body);
+  }
+  const c = document.createElement("div");
+  c.textContent = content || "";
+  div.appendChild(c);
+  $("messages").appendChild(div);
+  $("messages").scrollTop = $("messages").scrollHeight;
+  return div;
+}
+
+// 流式写文本：保留末尾闪烁光标，让输出更顺滑
+function setStreamText(el, text) {
+  if (!el) return;
+  const old = el.querySelector(".stream-cursor");
+  if (old) old.remove();
+  el.textContent = text;
+  const cur = document.createElement("span");
+  cur.className = "stream-cursor";
+  cur.textContent = "▋";
+  el.appendChild(cur);
+}
+function clearCursor(el) {
+  if (!el) return;
+  const c = el.querySelector(".stream-cursor");
+  if (c) c.remove();
+}
+
+// ---------- 发送 ----------
+async function send() {
+  const text = $("input").value.trim();
+  if (!text || busy) return;
+  busy = true; $("sendBtn").disabled = true;
+  $("input").value = "";
+  messages.push({ role: "user", content: text });
+  renderMsg("user", text, "");
+  const aiDiv = renderMsg("ai", "", thinking ? "思考中…" : "");
+  let acc = "", thinkAcc = "";
+  let hasContent = false;
+  const thinkToggle = aiDiv.querySelector(".thinking-toggle");
+  const thinkBody = aiDiv.querySelector(".think");
+  const contentBody = aiDiv.lastChild;
+
+    try {
+      const resp = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: currentModel, messages: messages.map(m=>({role:m.role,content:m.content})), stream: true, think: thinking, kb: useKb, web: useWeb, memory: useMemory, num_ctx: perf.num_ctx, num_gpu_layers: perf.num_gpu_layers, kv_cache_type: perf.kv_cache_type })
+      });
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let metaShown = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let lines = buf.split("\n"); buf = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const obj = JSON.parse(line);
+            if (obj.__meta__) {
+              const tags = [];
+              if (obj.__meta__.memory_used) tags.push("🧠 已载入记忆文档");
+              if (obj.__meta__.kb_used) tags.push("📚 已检索本地知识库");
+              if (obj.__meta__.web_used) tags.push("🌐 已联网检索");
+              if (tags.length) {
+                const tag = document.createElement("div");
+                tag.style.cssText = "color:var(--green);font-size:12px;margin-bottom:6px;";
+                tag.textContent = tags.join("  ");
+                if (thinkBody) thinkBody.parentNode.insertBefore(tag, thinkBody);
+                else aiDiv.insertBefore(tag, aiDiv.firstChild);
+              }
+              metaShown = true;
+              continue;
+            }
+            const msg = obj.message || {};
+            if (msg.thinking) {
+              if (!thinkAcc) { thinkBody.innerHTML = ""; }
+              thinkAcc += msg.thinking;
+              setStreamText(thinkBody, thinkAcc);
+            }
+            if (msg.content) {
+              if (!hasContent) { contentBody.textContent = ""; hasContent = true; }
+              acc += msg.content;
+              setStreamText(contentBody, acc);
+            }
+          } catch (e) {}
+        }
+        $("messages").scrollTop = $("messages").scrollHeight;
+      }
+      // 收尾：移除光标、清理空思考块
+      clearCursor(thinkBody); clearCursor(contentBody);
+      if (!thinkAcc && thinkBody) { thinkBody.style.display = "none"; const tg = aiDiv.querySelector(".thinking-toggle"); if (tg) tg.style.display = "none"; }
+      if (!hasContent && thinkAcc) {
+        contentBody.textContent = "（已输出思考过程）";
+      }
+    } catch (e) {
+      contentBody.textContent = "出错了：" + e.message;
+    }
+  messages.push({ role: "assistant", content: acc });
+  saveHistory();
+  loadPS();
+  busy = false; $("sendBtn").disabled = false;
+}
+
+function newChat() {
+  activeSessionId = null;
+  messages = [];
+  $("messages").innerHTML = '<div class="msg ai">新会话已开始，输入消息吧 👋</div>';
+}
+
+// ---------- 事件 ----------
+$("sendBtn").onclick = send;
+$("input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  $("input").style.height = "auto"; $("input").style.height = Math.min($("input").scrollHeight, 140) + "px";
+});
+$("modelSelect").onchange = e => selectModel(e.target.value);
+$("thinkToggle").onclick = () => { thinking = !thinking; $("thinkToggle").classList.toggle("on", thinking); };
+$("kbToggle").onclick = () => { useKb = !useKb; $("kbToggle").classList.toggle("on", useKb); };
+$("webToggle").onclick = async () => { useWeb = !useWeb; $("webToggle").classList.toggle("on", useWeb); if (useWeb) await checkMcp(); };
+$("memToggle").onclick = () => { useMemory = !useMemory; $("memToggle").classList.toggle("on", useMemory); };
+$("autoBtn").onclick = () => alert("自动释放已默认开启（OLLAMA_KEEP_ALIVE=0），对话结束会自动卸载显存。无需操作。");
+$("manualBtn").onclick = async () => { const r = await fetch("/api/release", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({model: currentModel})}); const d = await r.json(); alert(d.ok ? "已释放显存 ✅\n" + (d.output||"") : "释放失败：" + (d.error||"")); loadPS(); };
+$("quitBtn").onclick = async () => { if (!confirm("确定彻底退出 Ollama？下次需重新打开 Ollama。")) return; const r = await fetch("/api/quit", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"}); const d = await r.json(); alert(d.ok ? "Ollama 已退出 ✅" : "退出失败：" + (d.error||"")); checkConnection(); };
+
+// ---------- 知识库状态 ----------
+async function checkMcp() {
+  try {
+    const r = await fetch("/api/mcp_status");
+    const d = await r.json();
+    $("kbStatus").textContent = d.ready ? "知识库已就绪" : ("知识库：" + (d.status || "未就绪"));
+    $("kbDot").classList.toggle("ok", !!d.ready);
+  } catch (e) {
+    $("kbStatus").textContent = "知识库：状态获取失败";
+  }
+}
+
+// ---------- 记忆文档状态 ----------
+async function loadMemoryStatus() {
+  try {
+    const r = await fetch("/api/memory");
+    const d = await r.json();
+    $("memStatus").textContent = d.loaded ? ("记忆已载入" + (d.compressed ? "（已压缩 " + d.compact_length + " 字）" : "")) : "无记忆文档";
+    $("memDot").classList.toggle("ok", !!d.loaded);
+  } catch (e) {
+    $("memStatus").textContent = "记忆：获取失败";
+  }
+}
+// ---------- 更新数据库（加入文档） ----------
+$("ingestBtn").onclick = async () => {
+  try {
+    if (!window.pywebview || !window.pywebview.api) { alert("窗口尚未就绪，请稍候再试。"); return; }
+    const path = await window.pywebview.api.pick_file();
+    if (!path || (path && path.error)) { if (path && path.error) alert("选择失败：" + path.error); return; }
+    $("ingestMsg").textContent = "正在入库：" + path + " …";
+    const r = await fetch("/api/ingest", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ path, title: "" }) });
+    const d = await r.json();
+    $("ingestMsg").textContent = d.ok ? ("✅ " + (d.result || "已加入知识库")) : ("❌ " + (d.error || "失败"));
+  } catch (e) {
+    $("ingestMsg").textContent = "❌ " + e.message;
+  }
+};
+
+// ---------- 记忆文档编辑（添加/修改长期记忆） ----------
+$("memEditBtn").onclick = async () => {
+  try {
+    const r = await fetch("/api/memory_raw");
+    $("memEditor").value = await r.text();
+    $("memSaveMsg").textContent = "";
+    $("memMask").classList.add("show");
+    $("memEditor").focus();
+  } catch (e) {
+    $("memHint").textContent = "❌ 读取记忆失败：" + e.message;
+  }
+};
+$("memCancel").onclick = () => $("memMask").classList.remove("show");
+$("memMask").addEventListener("click", e => { if (e.target === $("memMask")) $("memMask").classList.remove("show"); });
+
+// ---------- 记忆摘要压缩 ----------
+$("memCompactBtn").onclick = async () => {
+  $("memHint").textContent = "正在用本地模型提炼摘要，请稍候…";
+  try {
+    const r = await fetch("/api/memory_compact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    });
+    const d = await r.json();
+    $("memHint").textContent = d.ok ? ("✅ " + (d.result || "已压缩")) : ("❌ " + (d.error || "压缩失败"));
+    loadMemoryStatus();
+  } catch (e) {
+    $("memHint").textContent = "❌ " + e.message;
+  }
+};
+$("memSave").onclick = async () => {
+  const content = $("memEditor").value;
+  $("memSaveMsg").textContent = "保存中…";
+  try {
+    const r = await fetch("/api/memory_update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      $("memSaveMsg").textContent = "✅ 已保存，立即生效";
+      $("memStatus").textContent = "记忆已载入";
+      $("memDot").classList.add("ok");
+      setTimeout(() => $("memMask").classList.remove("show"), 700);
+    } else {
+      $("memSaveMsg").textContent = "❌ " + (d.error || "保存失败");
+    }
+  } catch (e) {
+    $("memSaveMsg").textContent = "❌ " + e.message;
+  }
+};
+
+// ---------- 性能设置交互 ----------
+$("ctxRange").addEventListener("input", e => { perf.num_ctx = +e.target.value; $("ctxVal").textContent = perf.num_ctx; savePerf(); });
+$("gpuRange").addEventListener("input", e => { perf.num_gpu_layers = +e.target.value; $("gpuVal").textContent = perf.num_gpu_layers; savePerf(); });
+$("kvSelect").addEventListener("change", e => { perf.kv_cache_type = e.target.value; savePerf(); });
+$("perfReset").onclick = () => { perf = { num_ctx: 8192, num_gpu_layers: 36, kv_cache_type: "q8_0" }; applyPerfUI(); savePerf(); };
+loadPerf();
+applyPerfUI();
+
+// 定时刷新侧栏
+checkConnection();
+loadHistory();
+checkMcp();
+loadMemoryStatus();
+setInterval(() => { loadPS(); checkMcp(); }, 5000);
+setInterval(() => { checkConnection(); loadModels(); }, 15000);
+</script>
+</body>
+</html>
